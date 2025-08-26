@@ -1,101 +1,102 @@
 #!/bin/sh
-# Filename: 'sysup'
-# Description: Cross-platform system update script
+# sysup — POSIX-compliant system update script
 
-sysup() {
-    local log_file="${LOG_HOME:-$HOME/log}/sysup.log"
-    local os_release="/etc/os-release"
-    local distro=""
-    local pkg_manager="${PKG_MANAGER:-}"
+log_file="${LOG_HOME:-$HOME/log}/sysup.log"
+os_release="/etc/os-release"
+distro=""
+pkg_manager="${PKG_MANAGER:-}"
 
-    echo "🔄 Starting system update... (Logging to '${log_file}')"
-    mkdir -p "$(dirname "${log_file}")"
-    echo "==========================" >> "${log_file}"
-    echo "Update started on: $(date)" >> "${log_file}"
+echo "🔄 Starting system update... (Logging to '${log_file}')"
+mkdir -p "$(dirname "${log_file}")"
+{
+    echo "=========================="
+    echo "Update started on: $(date)"
+} >> "${log_file}"
 
-    if [[ -f "${os_release}" ]]; then
-        distro=$(grep '^ID=' "${os_release}" | cut -d= -f2 | tr -d '"')
-        [[ -z "${pkg_manager}" ]] && {
-            case "${distro}" in
-                fedora) pkg_manager="dnf" ;;
-                ubuntu|debian) pkg_manager="apt" ;;
-                arch|manjaro) pkg_manager="pacman" ;;
-                alpine) pkg_manager="apk" ;;
-                opensuse*) pkg_manager="zypper" ;;
-                freebsd) pkg_manager="pkg" ;;
-                *) pkg_manager="unknown" ;;
-            esac
-        }
+if [ -f "${os_release}" ]; then
+    distro=$(grep '^ID=' "${os_release}" | cut -d= -f2 | tr -d '"')
+    if [ -z "${pkg_manager}" ]; then
+        case "${distro}" in
+            fedora) pkg_manager="dnf" ;;
+            ubuntu|debian) pkg_manager="apt" ;;
+            arch|manjaro) pkg_manager="pacman" ;;
+            alpine) pkg_manager="apk" ;;
+            opensuse*) pkg_manager="zypper" ;;
+            freebsd) pkg_manager="pkg" ;;
+            *) pkg_manager="unknown" ;;
+        esac
     fi
+fi
 
-    echo "Detected OS: ${distro}" >> "${log_file}"
-    echo "Using Package Manager: ${pkg_manager}" >> "${log_file}"
+{
+    echo "Detected OS: ${distro}"
+    echo "Using Package Manager: ${pkg_manager}"
+} >> "${log_file}"
 
-    case "${pkg_manager}" in
-        brew)
-            {
-                brew update && brew upgrade && brew cleanup
-                rustup update
-                pip install --upgrade pip
-                pip list --outdated | cut -d ' ' -f 1 | xargs -n 1 pip install --upgrade
-                npm update -g
-                gem update
-                cargo update
-            } | tee -a "${log_file}" ;;
-        apt)
-            {
-                sudo apt update && sudo apt upgrade -y
-                sudo apt autoremove -y && sudo apt autoclean
-                cargo update
-                rustup update
-            } | tee -a "${log_file}" ;;
-        pacman)
-            {
-                sudo pacman -Syu --noconfirm
-                cargo update
-                rustup update
-            } | tee -a "${log_file}" ;;
-        dnf)
-            {
-                sudo dnf upgrade --refresh -y
-                sudo dnf autoremove -y
-                cargo update
-                rustup update
-            } | tee -a "${log_file}" ;;
-        apk)
-            {
-                sudo apk update && sudo apk upgrade
-                cargo update
-                rustup update
-            } | tee -a "${log_file}" ;;
-        zypper)
-            {
-                sudo zypper refresh && sudo zypper update -y
-                cargo update
-                rustup update
-            } | tee -a "${log_file}" ;;
-        pkg|pkg_add|pkgin)
-            {
-                sudo "${pkg_manager}" update && sudo "${pkg_manager}" upgrade -y
-                cargo update
-                rustup update
-            } | tee -a "${log_file}" ;;
-        choco)
-            {
-                choco upgrade all -y
-                rustup update
-                cargo update
-            } | tee -a "${log_file}" ;;
-        scoop)
-            {
-                scoop update *
-                rustup update
-                cargo update
-            } | tee -a "${log_file}" ;;
-        *)
-            echo "❌ Error: Unsupported package manager (${pkg_manager})" | tee -a "${log_file}"
-            return 1 ;;
-    esac
+case "${pkg_manager}" in
+    brew)
+        (
+            brew update && brew upgrade && brew cleanup
+            rustup update
+            pip install --upgrade pip
+            pip list --outdated | cut -d ' ' -f 1 | xargs -n 1 pip install --upgrade
+            npm update -g
+            gem update
+            cargo update
+        ) >> "${log_file}" 2>&1 ;;
+    apt)
+        (
+            sudo apt update && sudo apt upgrade -y
+            sudo apt autoremove -y && sudo apt autoclean
+            cargo update
+            rustup update
+        ) >> "${log_file}" 2>&1 ;;
+    pacman)
+        (
+            sudo pacman -Syu --noconfirm
+            cargo update
+            rustup update
+        ) >> "${log_file}" 2>&1 ;;
+    dnf)
+        (
+            sudo dnf upgrade --refresh -y
+            sudo dnf autoremove -y
+            cargo update
+            rustup update
+        ) >> "${log_file}" 2>&1 ;;
+    apk)
+        (
+            sudo apk update && sudo apk upgrade
+            cargo update
+            rustup update
+        ) >> "${log_file}" 2>&1 ;;
+    zypper)
+        (
+            sudo zypper refresh && sudo zypper update -y
+            cargo update
+            rustup update
+        ) >> "${log_file}" 2>&1 ;;
+    pkg|pkg_add|pkgin)
+        (
+            sudo "${pkg_manager}" update && sudo "${pkg_manager}" upgrade -y
+            cargo update
+            rustup update
+        ) >> "${log_file}" 2>&1 ;;
+    choco)
+        (
+            choco upgrade all -y
+            rustup update
+            cargo update
+        ) >> "${log_file}" 2>&1 ;;
+    scoop)
+        (
+            scoop update *
+            rustup update
+            cargo update
+        ) >> "${log_file}" 2>&1 ;;
+    *)
+        echo "❌ Error: Unsupported package manager (${pkg_manager})" >> "${log_file}"
+        exit 1 ;;
+esac
 
-    echo "✅ System update complete!" | tee -a "${log_file}"
-}
+echo "✅ System update complete!" >> "${log_file}"
